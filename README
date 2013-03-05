@@ -1,2 +1,75 @@
 Code for exploring likelihood of CMB dipole-modulation model
 
+Guide to git
+============
+
+A couple of years ago there was a battle over what was going to be the
+version control software of the future; in 2013 it seems safe to say
+that git has won.
+
+However, git did NOT win because of user-friendliness. Hence this
+guide. (It won because it can do many, many more things than the
+others and has a really strong technical foundation).
+
+The thing to understand is that Subversion provides *both* a tool
+and an enforced workflow. Git provides lower-level tools and you
+need to use those to set up your own workflow.
+
+For *anything* more complicated than editing a paper one *must*
+understand how git works; attempting to follow recipes will
+cause dizzyness and confusion when things don't work. Here's
+an explanation:
+
+http://www.sbf5.com/~cduan/technical/git/
+
+Or come ask me.
+
+However, for something as simple as editing a paper, let's try
+a recipe.
+
+1)
+
+    $ git config --global user.name "John Doe"
+    $ git config --global user.email johndoe@example.com
+
+
+2) Since you're reading this, you already have a GitHub account.
+   For write access GitHub needs your SSH public key, so go to
+   https://github.com/settings/ssh and upload
+    ~/.ssh/id_rsa.pub (or ~/.ssh/id_dsa.pub).
+
+3)
+
+    $ git clone git@github.com:dagss/paper-commander2-wmap9yr.git
+    $ cd paper-commander2-wmap9yr
+
+4) Before starting to edit paper (and unless you just cloned), pull
+   any changes others might have done:
+
+    $ git pull --rebase
+
+5) Edit paper. When done, make a local commit:
+
+    $ git commit -am 'Polished abstract'
+
+6) Attempt to push. If this succeeds, nobody else made a commit in the meantime,
+   and you are done:
+
+    $ git push
+
+7) If that failed, you need to first pull other people's commits; your
+   own commits will be "stacked on top". If that doesn't work, see 8).
+   Otherwise attempt to push again:
+
+    $ git pull --rebase
+    $ git push
+
+8) The "pull --rebase" command can fail if there's a conflict you need
+   to resolve.  In that case go and do so (in the tex-file).  After
+   that you do:
+
+    $ git add commander2-wmap9yr.tex
+    $ git rebase --continue
+    $ git push
+
+   Yes, "add" doesn't mean what you expect it to.
