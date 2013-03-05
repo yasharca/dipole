@@ -10,7 +10,7 @@
 .SUFFIXES: 
 .SUFFIXES: .f90 .c .o
 include make.inc
-INCLUDEDIR = -I../SRC
+INCLUDEDIR = -I$(DSuperLUroot)/SRC
 
 MKLROOT = ~sigurdkn/local/intel_mkl
 LDFLAGS = -lhealpix -lhdf5_fortran -lhdf5 -lcfitsio -openmp -lgsl -lslatec -Wl,--start-group  $(MKLROOT)/mkl/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/mkl/lib/intel64/libmkl_intel_thread.a $(MKLROOT)/mkl/lib/intel64/libmkl_core.a -Wl,--end-group -openmp -lpthread
@@ -35,7 +35,7 @@ F_TST   = $(F_MOD) dhbcode1.o f_test.o quiet_hdf_mod.o quiet_mapfile_mod.o
 F_ZTST   = $(F_MOD) dhbcode1.o f_ztest.o quiet_hdf_mod.o quiet_mapfile_mod.o
 
 
-all: f_pddrive f_pzdrive f_5x5 f_dipolelike f_dipolemcmc f_test f_ztest
+all: f_dipolelike f_dipolemcmc f_test f_ztest
 
 quiet_mapfile_mod.o: quiet_hdf_mod.o
 f_dipolelike.o: quiet_hdf_mod.o quiet_mapfile_mod.o
@@ -45,15 +45,6 @@ f_dipolemcmc.o: quiet_hdf_mod.o quiet_mapfile_mod.o mcmcmodule.o
 f_test.o: quiet_hdf_mod.o quiet_mapfile_mod.o
 
 f_ztest.o: quiet_hdf_mod.o quiet_mapfile_mod.o
-
-f_pddrive: $(F_DEXM) $(C_DWRAP) $(DSUPERLULIB)
-	$(FORTRAN) $(LOADOPTS) $(F_DEXM) $(C_DWRAP) $(LIBS) -o $@
-
-f_5x5: $(F_5x5) $(C_DWRAP) $(DSUPERLULIB)
-	$(FORTRAN) $(LOADOPTS) $(F_5x5) $(C_DWRAP) $(LIBS) -o $@
-
-f_pzdrive: $(F_ZEXM) $(C_ZWRAP) $(DSUPERLULIB)
-	$(FORTRAN) $(LOADOPTS) $(F_ZEXM) $(C_ZWRAP) $(LIBS) -o $@
 
 f_dipolelike: $(F_DPL) $(C_ZWRAP) $(DSUPERLULIB)
 	$(FORTRAN) $(LOADOPTS) $(F_DPL) $(C_ZWRAP) $(LIBS) -o $@ $(LDFLAGS)
