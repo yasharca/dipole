@@ -1,0 +1,25 @@
+  Process grid            2  X            2
+forrtl: severe (174): SIGSEGV, segmentation fault occurred
+Image              PC                Routine            Line        Source             
+f_pddrive          000000000048E743  Unknown               Unknown  Unknown
+f_pddrive          000000000042246A  Unknown               Unknown  Unknown
+f_pddrive          0000000000408F45  Unknown               Unknown  Unknown
+f_pddrive          00000000004056A2  Unknown               Unknown  Unknown
+f_pddrive          0000000000404FA5  Unknown               Unknown  Unknown
+f_pddrive          00000000004040DC  Unknown               Unknown  Unknown
+libc.so.6          00002AD37E846994  Unknown               Unknown  Unknown
+f_pddrive          0000000000403FE9  Unknown               Unknown  Unknown
+forrtl: severe (174): SIGSEGV, segmentation fault occurred
+Image              PC                Routine            Line        Source             
+f_pddrive          000000000048E743  Unknown               Unknown  Unknown
+f_pddrive          000000000042246A  Unknown               Unknown  Unknown
+f_pddrive          0000000000408F45  Unknown               Unknown  Unknown
+f_pddrive          00000000004056A2  Unknown               Unknown  Unknown
+f_pddrive          0000000000404FA5  Unknown               Unknown  Unknown
+f_pddrive          00000000004040DC  Unknown               Unknown  Unknown
+libc.so.6          00002B3E5331F994  Unknown               Unknown  Unknown
+f_pddrive          0000000000403FE9  Unknown               Unknown  Unknown
+rank 1 in job 6  regulus.uio.no_39965   caused collective abort of all ranks
+  exit status of rank 1: return code 174 
+rank 0 in job 6  regulus.uio.no_39965   caused collective abort of all ranks
+  exit status of rank 0: return code 174 

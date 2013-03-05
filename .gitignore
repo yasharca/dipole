@@ -1,0 +1,13 @@
+*.o
+\#*
+*~
+*.mod
+*.bak
+
+/f_5x5
+/f_dipolelike
+/f_dipolemcmc
+/f_pddrive
+/f_pzdrive
+/f_test
+/f_ztest
