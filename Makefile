@@ -9,7 +9,7 @@
 #######################################################################
 .SUFFIXES: 
 .SUFFIXES: .f90 .c .o
-include ../make.inc
+include make.inc
 INCLUDEDIR = -I../SRC
 
 MKLROOT = ~sigurdkn/local/intel_mkl
