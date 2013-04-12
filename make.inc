@@ -21,6 +21,11 @@
 #
 PLAT		= _linux
 
+
+COMMANDER = ${HOME}/code/commander
+COMMANDERLIB = -L$(COMMANDER)/src/commander -lcommander
+COMMANDERINCLUDE = -I$(COMMANDER)/src/commander -I$(COMMANDER)/src/include
+
 #
 #  The name of the libraries to be created/linked to
 #
@@ -41,7 +46,10 @@ PARMETISLIB	= /mn/stornext/u2/yasharca/sdss/ParMetis-3.2.0
 FLIBS	 	= 
 
 # Define all the libraries
-LIBS            = $(DSUPERLULIB) $(BLASLIB) -L$(PARMETISLIB) -lparmetis -L$(METISLIB) -lmetis
+LIBS            = $(DSUPERLULIB) $(BLASLIB) -L$(PARMETISLIB) -lparmetis -L$(METISLIB) -lmetis $(COMMANDERLIB)
+
+
+INCLUDES = $(COMMANDERINCLUDE)
 
 #
 #  The archiver and the flag(s) to use when building archive (library)

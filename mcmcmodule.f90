@@ -1,5 +1,12 @@
 
 module MCMCmodule
+      use healpix_types
+      use fitstools
+      use pix_tools
+      use alm_tools
+      use head_fits
+      use quiet_mapfile_mod
+      use quiet_hdf_mod
 
       implicit none
 
@@ -14,7 +21,9 @@ module MCMCmodule
         logical :: outputMpcty = .false.
         integer :: fileunit = 89
         double precision :: initialWidths(nn) = 0.05, crudeTolerance = 1d-2
-        character (len=200) :: chainame = 'mcmchains/mcmchain_alpha0072betha102phi224_simmap2.out'
+        !character (len=200) :: chainame = 'mcmchains/mcmchain_20_wmap09_test1_lmax64_mix_euler_posalpha_aroudpeak_widesteps_3.out'
+        !character (len=200) :: chainame = 'mcmchains/mcmchain_12_ns256lmax200_notsynfast_map1_orig_euler_posalpha_aroudpeak_widesteps_3.out'
+        character (len=200) :: chainame = 'mcmchains/sim.out'
         !character (len=200) :: chainame = 'mcmchains/mcmchain_wmap09_test1_4_lmax80.out'
       end type
 
@@ -50,10 +59,6 @@ subroutine MCMC(ff,n,mctrl,x,f,status)
 !     positive definite.
 !
 !     Uses a seperable, adaptive, n-dimensional Gaussian proposal function.
-!
-!     Pat Scott
-!     Department of Physics, Stockholm University
-!     pat@fysik.su.se
 !
 !
 !     Input:
@@ -141,8 +146,8 @@ subroutine MCMC(ff,n,mctrl,x,f,status)
       logical:: stepOn
       integer :: i, j, stepCount=0, mpcty, f_prev
       double precision :: proposalWidths(n)
-      double precision :: parmin(n), parmax(n), x_current(n)
-      real*8 :: f_current
+      double precision :: parmin(n), parmax(n), x_current(n), x_temp(n)
+      real*8 :: f_current, start_tot, finish_tot
 
 
 	parmin(1) = 0.d0
@@ -164,26 +169,43 @@ subroutine MCMC(ff,n,mctrl,x,f,status)
         do j = 1, n
           x_current(j) = urand()
         enddo
-      f_current = ff(n,x_current)
-      x = x_current
+        do i = 1,n
+          x_temp(i) = x_current(i)*(parmax(i)-parmin(i))+parmin(i)
+        enddo
+        x_temp(1) = 0.07
+        x_temp(2) = 112
+        x_temp(3) = 224
+      f_current = ff(n,x_temp)
+      x = x_temp
       f = f_current
       !write(*,*)x_current
       !Initialise the proposal widths
       proposalWidths = mctrl%initialWidths
-      !proposalWidths(1) = 0.01
-      !proposalWidths(2) = 1.0
-      !proposalWidths(3) = 1.0
+      !proposalWidths(1) = 0.05
+      proposalWidths(2) = 25 * DEG2RAD
+      proposalWidths(3) = 25 * DEG2RAD
        
       !do j = 1, 10000
       do j = 1, 50000
       !write(*,*)x_current
-        stepOn = MetroHastyStep(ff,f_current,n,x_current,proposalWidths)
-        write(mctrl%fileunit,fstr2) (x_current(i)*(parmax(i)-parmin(i))+parmin(i), i=1,n),f_current
+        !do i = 1,n
+        !  x_temp(i) = x_current(i)*(parmax(i)-parmin(i))+parmin(i)
+        !enddo
+
+ call cpu_time(start_tot)
+
+        stepOn = MetroHastyStep(ff,f_current,n,x_temp,proposalWidths)
+
+        write(mctrl%fileunit,fstr2) (x_temp(i), i=1,n),f_current
         !Update the best fit
         if (f .gt. f_current) then
           f = f_current
-          x = x_current
-        endif           
+          x = x_temp
+        endif
+
+ call cpu_time(finish_tot)
+ write(*,*)'finish-start (MetroHastyStep) =',finish_tot-start_tot
+          
       enddo
 
       close(mctrl%fileunit)
@@ -194,23 +216,62 @@ end subroutine MCMC
 
 logical function MetroHastyStep(ff,f,n,x,proposalWidths)
 !     Does a single Metropolis-Hastings MCMC step
-!     Pat Scott June 2010
 
       integer, intent(IN) :: n
       integer :: i
-      double precision, intent(IN) :: proposalWidths(n)
+      double precision, intent(IN)    :: proposalWidths(n)
       double precision, intent(INOUT) :: x(n)
-      double precision :: xnew(n), proposedJump(n)
+      double precision                :: xnew(n), proposedJump(n), alpha, theta, phi
+      double precision, dimension(3,3):: M_0, M_delta
+      double precision, dimension(3)  :: nv
       real*8, intent(INOUT) :: f
       real*8 :: ff, f_new
       external ff
+
+      alpha = x(1)
+      theta = x(2) * DEG2RAD
+      phi = x(3) * DEG2RAD
+
+      nv(1) = sin(theta)*cos(phi)
+      nv(2) = sin(theta)*sin(phi)
+      nv(3) = cos(theta)
+
+      !write(*,*)'theta = ',theta
+      !write(*,*)'phi = ',phi
+      !call compute_euler_matrix_zyz(phi, theta, 0.d0, M_0)
+      !nv = matmul(M_0,matmul(transpose(M_0),nv))
+      !xnew(2) = acos(nv(3))
+      !xnew(3) = atan2(nv(2),nv(1))
+      !if (xnew(3) .lt. 0.d0) xnew(3) = xnew(3) + 2*pi
+      !write(*,*)'theta 2 = ',xnew(2)
+      !write(*,*)'phi 2 = ',xnew(3)
+
       do 
-        do i = 1, n
-          proposedJump(i) = gaussdev()*proposalWidths(i)
-        enddo
-        xnew = x + proposedJump
-        if (all(xnew .le. 1.d0 .and. xnew .ge. 0.d0)) exit
+        !do i = 1, n
+        !  proposedJump(i) = gaussdev()*proposalWidths(i)
+        !enddo
+          proposedJump(1) = gaussdev()*proposalWidths(1)
+        xnew(1) = alpha + proposedJump(1)
+        !if (all(xnew .le. 1.d0 .and. xnew .ge. 0.d0)) exit
+        if ((xnew(1) .le. 1.d0) .and. (xnew(1) .ge. 0.d0)) exit
       enddo
+
+        !do i = 2, n
+        !  proposedJump(i) = gaussdev()*proposalWidths(i)
+        !enddo
+
+          proposedJump(2) = gaussdev()*proposalWidths(2)
+          !proposedJump(3) = gaussdev()*proposalWidths(3)
+          proposedJump(3) = urand()*2*pi
+
+      call compute_euler_matrix_zyz(phi, theta, 0.d0, M_0)
+      call compute_euler_matrix_zyz(proposedJump(3), proposedJump(2), 0.d0, M_delta)
+      nv = matmul(M_0,matmul(M_delta,matmul(transpose(M_0),nv)))
+      xnew(2) = acos(nv(3))
+      xnew(3) = atan2(nv(2),nv(1))
+      if (xnew(3) .lt. 0.d0) xnew(3) = xnew(3) + 2*pi
+      xnew(2) = xnew(2) / DEG2RAD
+      xnew(3) = xnew(3) / DEG2RAD
 
       f_new = ff(n,xnew)
 
@@ -245,11 +306,68 @@ logical function MetroHastyStep(ff,f,n,x,proposalWidths)
 
 end function MetroHastyStep
 
+! Convention: First psi around z, then theta around y, then phi around z
+subroutine compute_euler_matrix_zyz(phi, theta, psi, euler_matrix)
+    implicit none
+
+    real(dp),                 intent(in)  :: phi, theta, psi
+    real(dp), dimension(3,3), intent(out) :: euler_matrix
+
+    real(dp) :: sphi, cphi, sth, cth, spsi, cpsi
+
+    sphi = sin(phi)
+    cphi = cos(phi)
+
+    sth  = sin(theta)
+    cth  = cos(theta)
+
+    spsi = sin(psi)
+    cpsi = cos(psi)
+
+    euler_matrix(1,1) = -sphi * spsi + cth * cphi * cpsi
+    euler_matrix(1,2) = -sphi * cpsi - cth * cphi * spsi
+    euler_matrix(1,3) =                sth * cphi
+    euler_matrix(2,1) =  cphi * spsi + cth * sphi * cpsi
+    euler_matrix(2,2) =  cphi * cpsi - cth * sphi * spsi
+    euler_matrix(2,3) =                sth * sphi
+    euler_matrix(3,1) =              - sth * cpsi
+    euler_matrix(3,2) =                sth * spsi
+    euler_matrix(3,3) =                cth
+
+end subroutine compute_euler_matrix_zyz
+
+!subroutine convert_euler_matrix_to_angles_zyz(M, phi, theta, psi)
+!    implicit none
+
+!    real(dp), dimension(3,3), intent(in)  :: M
+!    real(dp),                 intent(out) :: phi, theta, psi
+
+!    real(dp) :: sth, cth, spsi, sphi
+
+!    ! Get theta
+!    cth = M(3,3)
+!    if (cth > 1.d0) then
+!       theta = 0.d0
+!    else if (cth < -1.d0) then
+!       theta = pi
+!    else
+!       theta = acos(cth)
+!    end if
+
+!    if (abs(cth) < 0.9999998d0) then
+!       phi = atan2(M(2,3),M(1,3))
+!       psi = -atan2(-M(3,2),-M(3,1))
+!    else
+!       ! Psi and phi are degenerate; define phi = 0
+!       phi = 0.d0
+!       psi = atan2(-M(1,2),M(2,2))
+!    end if
+
+!end subroutine convert_euler_matrix_to_angles_zyz
 
 double precision function gaussdev()
 !     Returns gaussianly-distributed random numbers with unit variance
 !     Based on Numerical Recipes routine gasdev
-!     Pat Scott June 2010
 
       logical, save :: gotSpare=.false.
       double precision, save :: spare
@@ -278,7 +396,6 @@ double precision pure function stdev(data,n)
 
 ! Calculates standard deviation of data
 ! Based on Numerical Recipes moment function
-! Pat Scott June 2010
 
       integer, intent(IN) :: n
       integer :: j

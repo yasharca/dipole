@@ -41,10 +41,10 @@
 
       integer(i4b) 				   :: i, j, k, n
       integer(i4b)                                 :: nside, npix, L_max
-      parameter (nside = 16, npix = 12*nside**2, L_max = nside*2)
-      !parameter (nside = 256, npix = 12*nside**2, L_max = 80)
-      integer 				           :: l, m, nummap
-      real(dp)       			           :: nullval
+      !parameter (nside = 16, npix = 12*nside**2, L_max = nside*2)
+      parameter (nside = 256, npix = 12*nside**2, L_max = 64)
+      integer 				           :: l, m, absm, nummap
+      real(dp)       			           :: nullval, start, finish
       complex(dpc)                                 :: s_obs_lu(1:L_max*L_max+2*L_max+1), S_iso_lu(1:L_max*L_max+2*L_max+1)
       real(dp), allocatable, dimension(:,:)        :: map_obs, cl
       real(dp)                                     :: cl_temp(1:5)
@@ -64,57 +64,69 @@
 ! Initialize MPI environment 
       call mpi_init(ierr)
 
-  nummap = 2
+  nummap = 1
 
-do k=2, nummap
+do k=1, nummap
 
   allocate(map_obs(0:npix-1,1))
 
-  write (filename, 10) k
-10    format ('modmaps_2/test_ns16lmax32_notsynfast_mod_', I0, '.fits')
-  call read_bintab(filename,map_obs,npix,1,nullval,anynull)
-  !call read_bintab('commander_wmaponly_cl_cmb_test1.fits',map_obs,npix,1,nullval,anynull)
+  !write (filename, 10) k
+!10    format ('modmaps_2/test_ns16lmax32_notsynfast_mod_', I0, '.fits')
+  !call read_bintab(filename,map_obs,npix,1,nullval,anynull)
+  !call read_bintab('commander_wmaponly_cl_cmb_test1_mix.fits',map_obs,npix,1,nullval,anynull)
+  !call read_bintab('maps_ns256_lmax200/test_ns256lmax200_notsynfast_1.fits',map_obs,npix,1,nullval,anynull)
+  call read_bintab('sim.fits',map_obs,npix,1,nullval,anynull)
 
   allocate(s_obs_LM(1, 0:L_max, 0:L_max))
   call map2alm_iterative(nside, L_max, L_max, 2, map_obs, s_obs_LM)
   deallocate(map_obs)
 
-  l = 0
-  m = 0
-  s_obs_lu(l*(l+1)+m+1) = s_obs_LM(1,l,m)
-
-  do l =1, L_max
-     do m = 0, l
-        s_obs_lu(l*(l+1)+m+1) = s_obs_LM(1,l,m)
+  i = 1
+  absm = 0
+     do l = absm, L_max
+        s_obs_lu(i) = s_obs_LM(1,l,absm)
+        i = i + 1
      enddo
-     do m = -l, -1
-        s_obs_lu(l*(l+1)+m+1) = conjg(s_obs_LM(1,l,-m))*(-1)**m
+
+  do absm = 1, L_max
+     do l = absm, L_max
+        s_obs_lu(i) = s_obs_LM(1,l,absm)
+        i = i + 1
+        s_obs_lu(i) = conjg(s_obs_LM(1,l,absm))*(-1)**(-absm)
+        i = i + 1
      enddo
   enddo
+
   deallocate(s_obs_LM)
 
   allocate(cl(0:L_max,1))
-  call fits2cl('cl.fits', cl, L_max, 1, header)
+  !call fits2cl('cl.fits', cl, L_max, 1, header)
 
-  !open(29, file = "camb_61139232_scalcls.dat")
-  !do i =2, L_max
-  !  read(29,*)l,cl_temp
-  !  cl(i,1)=cl_temp(1)*2*pi/i/(i+1)
-  !enddo
-  !cl(0,1) = 0.d0
-  !cl(1,1) = 0.d0
-  !close(29)
+  open(29, file = "camb_61139232_scalcls.dat")
+  do i =2, L_max
+    read(29,*)l,cl_temp
+    cl(i,1)=cl_temp(1)*2*pi/i/(i+1)
+  enddo
+  cl(0,1) = 0.d0
+  cl(1,1) = 0.d0
+  close(29)
 
-  !open(59, file = "cl_healpix.txt", status = 'REPLACE')
-  !do i = 0, L_max
-  !  write(59,*)i,cl(i,1)
-  !enddo
-  !close(59)
-  do l =0, L_max
-     do m = -l, l
-        S_iso_lu(l*(l+1)+m+1) = cl(l,1)
+  i = 1
+  absm = 0
+     do l = absm, L_max
+        S_iso_lu(i) = cl(l,1)
+        i = i + 1
+     enddo
+
+  do absm = 1, L_max
+     do l = absm, L_max
+        S_iso_lu(i) = cl(l,1)
+        i = i + 1
+        S_iso_lu(i) = cl(l,1)
+        i = i + 1
      enddo
   enddo
+
   deallocate(cl)
 
   call random_seed
@@ -126,21 +138,6 @@ do k=2, nummap
   call MCMC(ff,nn,mctrl,bestfitparams,f,status)
 
   write(*,*)'The best-fit likelihood is ',f
-
-  !write (filename, 11) k
-!11    format ('mcmchains/mcmchain_test_ns16lmax32_notsynfast_alpha04_', I0, '.out')
-  !open(39, file = filename, status = 'REPLACE')
-
-  !write(fstr1,'("(I5",i4,"(X, F20.10))")')nn+1
-  !write(fstr2,'("(",i4,"(X, F20.10))")')nn+1
-  !do i = 0, 100
-  !   x_test(1) = i*0.01
-  !!do i = 0, 180
-  !!   x_test(1) = i
-  !   write(*,*)'x_test = ',x_test
-  !   write(39,fstr2) (x_test(j), j=1,nn),ff(nn,x_test)
-  !enddo
-  !    close(39)
 
 enddo
 
@@ -179,29 +176,32 @@ function ff(n,x_in)
       integer maxn, maxnz, maxnrhs
       !parameter ( maxn = 5, maxnz = 100, maxnrhs = 10 )
       integer, allocatable, dimension(:)                              :: rowind, colptr
-      double complex, allocatable, dimension(:)                       :: values, b, berr, diagonals
+      double complex, allocatable, dimension(:)                       :: values, b, c, berr, diagonals
       double complex                                                  :: logdet_M2, logdet_Siso, logdet
       integer n_slu, m_slu, nnz, nprow, npcol, ldb, init
       integer*4 iam, info, ierr, ldb4, nrhs
       integer  numberrow, numbercol, nnz_local, firstrow
-      integer(i4b) 				                      :: i, j
-      integer 				                              :: l, m, lprime, mprime, firstelm
+      integer(i4b) 				                      :: i, j, k
+      integer 				                              :: l, m, lprime, mprime, absm, absmprime, firstelm
       integer(i4b)                                                    :: nside, npix, L_max
-      parameter (nside = 16, npix = 12*nside**2, L_max = nside*2)
-      !parameter (nside = 256, npix = 12*nside**2, L_max = 80)
+      !parameter (nside = 16, npix = 12*nside**2, L_max = nside*2)
+      parameter (nside = 256, npix = 12*nside**2, L_max = 64)
       complex(dpc), allocatable, dimension(:,:,:)                     :: gamma_LM
-      complex(dpc)                        :: s_obs_lu(1:L_max*L_max+2*L_max+1), S_iso_lu(1:L_max*L_max+2*L_max+1)
+      complex(dpc)                                                    :: gamma_00, gamma_1M(-1:1)
+      complex(dpc)                                                    :: s_obs_lu(1:L_max*L_max+2*L_max+1), S_iso_lu(1:L_max*L_max+2*L_max+1)
       real(dp)       			                              :: alpha, p_theta, p_phi, dist
       real(dp), allocatable, dimension(:)                             :: p_vector, n_vector
       real(dp), allocatable, dimension(:,:)                           :: gamma_pix
       complex(dpc)                                                    :: temp, chi2, loglikelihood
       real(dp)                                                        :: f
+      real(dp)                                                        :: start, finish, start_tot, finish_tot
 
       common  s_obs_lu, S_iso_lu
 
 !     Output:
       real*8 ff
 
+ call cpu_time(start_tot)
 
 ! Initialize MPI environment 
       !call mpi_init(ierr)
@@ -232,33 +232,25 @@ function ff(n,x_in)
          write(*,*) ' Process grid ', nprow, ' X ', npcol
       endif
 
-      alpha = x_in(1) * 0.5
+      alpha = x_in(1)
+      !alpha = x_in(1) * 0.5
       !alpha = 0.4
-      p_theta = x_in(2) * 180 * DEG2RAD
+      p_theta = x_in(2) * DEG2RAD
+      !p_theta = x_in(2) * 180 * DEG2RAD
       !p_theta = 107 * DEG2RAD
-      p_phi = x_in(3) * 360 * DEG2RAD
+      p_phi = x_in(3) * DEG2RAD
+      !p_phi = x_in(3) * 360 * DEG2RAD
       !p_phi = 226 * DEG2RAD
 
-      allocate(p_vector(3))
-      allocate(n_vector(3))
-      allocate(gamma_pix(0:npix-1,1))
-      call ang2vec(p_theta, p_phi, p_vector)
-      do i = 0, npix-1
-         call pix2vec_ring(nside, i, n_vector)
-         call angdist(p_vector, n_vector, dist)
-         gamma_pix(i,1) = 1+alpha*cos(dist)
-      enddo
-      deallocate(p_vector)
-      deallocate(n_vector)
+ !call cpu_time(start)
 
-      allocate(gamma_LM(1, 0:L_max, 0:L_max))
-      call map2alm_iterative(nside, L_max, L_max, 2, gamma_pix, gamma_LM)
-      write(*,*)'gamma_LM(1,1) = ',gamma_LM(1, 1, 1)
-      write(*,*)'gamma_LM(1,0) = ',gamma_LM(1, 1, 0)
-      write(*,*)'gamma_LM(10,8) = ',gamma_LM(1, 10, 8)
-      write(*,*)'gamma_LM(0,0) = ',gamma_LM(1, 0, 0)
-      write(*,*)'gamma_LM(0,0) = ',sqrt(4*pi)
+      gamma_00 = sqrt(4*pi)
+      gamma_1M(-1) = sqrt(2*pi/3)*alpha*CMPLX(sin(p_theta)*cos(p_phi),sin(p_theta)*sin(p_phi))
+      gamma_1M(0) = sqrt(4*pi/3)*alpha*cos(p_theta)
+      gamma_1M(1) = -sqrt(2*pi/3)*alpha*CMPLX(sin(p_theta)*cos(p_phi),-sin(p_theta)*sin(p_phi))
 
+ !call cpu_time(finish)
+ !write(*,*)'finish-start (1) =',finish-start
 
       maxn = L_max*L_max+2*L_max+1
       !maxn = 5
@@ -275,40 +267,56 @@ function ff(n,x_in)
       temp = 0.d0
       i = 1
       j = 1
-      
-      do lprime = 0, L_max
-          do mprime = -lprime, lprime
-             firstelm = 0
-             do l =0, L_max
-                 do m = -l, l
+
+ !call cpu_time(start)
+
+      do absmprime = 0, L_max
+         do lprime = absmprime, L_max
+           mprime = absmprime
+           do while (1 .eq. 1)
+            firstelm = 0
+            k = 0
+            do absm = 0, L_max
+              do l = absm, L_max
+               m = absm
+               do while (1 .eq. 1)
+               k = k+1
                    if (abs(m-mprime) .gt. 1) then
                      temp = 0.d0
                    else
-                     if (m-mprime .ge. 0) temp = Mod(real(l,dp),real(m,dp),real(lprime,dp),real(mprime,dp),gamma_LM(1,1,m-mprime),L_max)
-                     if (m-mprime .lt. 0) temp = Mod(real(l,dp),real(m,dp),real(lprime,dp),real(mprime,dp),(-1)**(m-mprime)*conjg(gamma_LM(1,1,mprime-m)),L_max)
+                     temp = Mod(real(l,dp),real(m,dp),real(lprime,dp),real(mprime,dp),gamma_1M,L_max)
                    endif
                    if (temp .ne. 0.d0) then
                      nnz = nnz + 1
                      values(i) = temp
-                     rowind(i) = l*(l+1)+m+1
+                     !rowind(i) = l*(l+1)+m+1
+                     rowind(i) = k
                      if (firstelm == 0) then
                          colptr(j) = i
                          j = j + 1
                      endif
                      i = i + 1
                      firstelm = 1
-                    endif
+                   endif
+                   if ((m .eq. 0) .or. (m .eq. -absm)) exit
+                   m = m-2*absm
                  enddo
+                enddo
              enddo
+           if ((mprime .eq. 0) .or. (mprime .eq. -absmprime)) exit
+           mprime = mprime-2*absmprime
+           enddo
          enddo
       enddo
       colptr(j) = nnz + 1
 
-      deallocate(gamma_pix)
-      deallocate(gamma_LM)
+ !call cpu_time(finish)
+ !write(*,*)'finish-start (2) =',finish-start
 
 ! Read Harwell-Boeing matrix, and adjust the pointers and indices
 ! to 0-based indexing, as required by C routines.
+
+ !call cpu_time(start)
 
       m_slu = maxn
       n_slu = maxn
@@ -321,7 +329,12 @@ function ff(n,x_in)
             rowind(i) = rowind(i) - 1
          enddo
       endif
-     
+
+ !call cpu_time(finish)
+ !write(*,*)'finish-start (3) =',finish-start
+
+ !call cpu_time(start)
+
 ! Distribute the matrix to the process gird
       call  f_zcreate_dist_matrix(A, m_slu, n_slu, nnz, values, rowind, colptr, grid)
 
@@ -334,15 +347,23 @@ function ff(n,x_in)
       ldb4 = ldb
       write(*,*)'ldb = ',ldb
 
+ !call cpu_time(finish)
+ !write(*,*)'finish-start (4) =',finish-start
+
 ! Set the default input options
       call f_set_default_options(options)
 
 ! Change one or more options
-!      call set_superlu_options(options,Fact=FACTORED)
-!      call set_superlu_options(options,ParSymbFact=YES)
+      !call set_superlu_options(options,Fact=DOFACT)
+      !call set_superlu_options(options,ParSymbFact=YES)
+      !call set_superlu_options(options,IterRefine=NO)
+      !call set_superlu_options(options,Equil=NO)
+      !call set_superlu_options(options,SymPattern=YES)
+      call set_superlu_options(options,PrintStat=NO)
+      !call set_superlu_options(options,num_lookaheads=5)
 
 ! Modify one or more options
-      call set_superlu_options(options,ColPerm=NATURAL)
+      call set_superlu_options(options,ColPerm=MMD_AT_PLUS_A)
       call set_superlu_options(options,RowPerm=NOROWPERM)
 
 ! Initialize ScalePermstruct and LUstruct
@@ -353,23 +374,47 @@ function ff(n,x_in)
 ! Initialize the statistics variables
       call f_PStatInit(stat)
 
+!      allocate(c(maxn))
+!      c = b
+
+ !call cpu_time(start)
+
 ! Call the linear equation solver
       call f_pzgssvx(options, A, ScalePermstruct, b, ldb4, nrhs, &
                      grid, LUstruct, SOLVEstruct, berr, stat, info)
+
+ !call cpu_time(finish)
+ !write(*,*)'finish-start (5) =',finish-start
+
+      !call set_superlu_options(options,Fact=SamePattern)
+
+ !call cpu_time(start)
+
+ !     call f_pzgssvx(options, A, ScalePermstruct, c, ldb4, nrhs, &
+ !                    grid, LUstruct, SOLVEstruct, berr, stat, info)
+
+ !call cpu_time(finish)
+ !write(*,*)'finish-start (5.5) =',finish-start
+
+!write(*,*)'b(10) = ',b(10)
+!write(*,*)'c(10) = ',c(10)
+
+ !call cpu_time(start)
 
       if (info == 0) then
          write (*,*) 'Backward error: ', (berr(i), i = 1, nrhs)
       else
          write(*,*) 'INFO from f_pdgssvx = ', info
       endif
-      
+
       logdet_Siso = 0.d0
       chi2 = 0.d0
-      do i = 5, ldb
-         chi2 = chi2 + b(i)*conjg(b(i))*S_iso_lu(i)**(-1)
-         logdet_Siso = logdet_Siso+log(S_iso_lu(i))
+      do i = 1, ldb
+         if (S_iso_lu(i) .ne. 0.d0) then
+            chi2 = chi2 + b(i)*conjg(b(i))*S_iso_lu(i)**(-1)
+            logdet_Siso = logdet_Siso+log(S_iso_lu(i))
+         endif
       enddo
-      !chi2 = chi2*(npix/4.d0/pi)**2
       write(*,*)'chi2 = ',chi2
       write(*,*)'logdet_Siso = ',logdet_Siso
 
@@ -388,6 +433,9 @@ function ff(n,x_in)
       
       loglikelihood = -0.5*chi2-0.5*logdet
       write(*,*)'loglikelihood = ',loglikelihood
+
+ !call cpu_time(finish)
+ !write(*,*)'finish-start (6) =',finish-start
 
       deallocate(values)
       deallocate(b)
@@ -426,39 +474,38 @@ function ff(n,x_in)
 
       ff = -loglikelihood
       !ff = chi2
-      !ff = exp(646.489+loglikelihood)
-      !ff = exp(660.639+loglikelihood)
-      !ff = exp(664.537+loglikelihood)
-      !ff = exp(1579.187+loglikelihood)
-      !ff = exp(1527.577+loglikelihood)
+
+ call cpu_time(finish_tot)
+ write(*,*)'finish-start (ff) =',finish_tot-start_tot
 
 contains
 
-function Mod(l,m,lprime,mprime,gamma_LM,L_max)
+function Mod(l,m,lprime,mprime,gamma_1M,L_max) !Gaunt_integral
 
    IMPLICIT NONE
    complex(dpc)                                 :: Mod
    integer(i4b)                                 :: L_max, NDIM, IER
-   complex(dpc)                                 :: gamma_LM
+   complex(dpc)                                 :: gamma_1M(-1:1)
    real(dp), allocatable, dimension(:)          :: p_vector, n_vector, THRCOF
    real(dp)                                     :: l, m, lprime, mprime, M2MIN, M2MAX
 
    if ((m == mprime) .and. (l == lprime)) then
       Mod = 1.d0
    else if ((abs(l-lprime) == 1) .and. (abs(m-mprime) .le. abs(l-lprime))) then
-
       NDIM = 2*L_max
       allocate(THRCOF(1:NDIM))
       THRCOF = 0.d0
       CALL DRC3JM (l, lprime, 1.d0, 0.d0, M2MIN, M2MAX, THRCOF, NDIM, IER)
-      Mod = (-1)**m*gamma_LM*sqrt((2*l+1)*(2*lprime+1)*3/4/pi)*THRCOF(1-M2MIN)
+      Mod = (-1)**m*gamma_1M(m-mprime)*sqrt((2*l+1)*(2*lprime+1)*3/4/pi)*THRCOF(1-M2MIN)
       CALL DRC3JM (l, lprime, 1.d0, -m, M2MIN, M2MAX, THRCOF, NDIM, IER)
       Mod = Mod*THRCOF(1-M2MIN+mprime)
-     deallocate(THRCOF)
+      deallocate(THRCOF)
    else
       Mod = 0.d0
    endif
 
 end function Mod
+
+
 
 end function ff

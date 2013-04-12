@@ -10,6 +10,7 @@
 .SUFFIXES: 
 .SUFFIXES: .f90 .c .o
 include make.inc
+
 INCLUDEDIR = -I$(DSuperLUroot)/SRC
 
 MKLROOT = ~sigurdkn/local/intel_mkl
@@ -46,8 +47,13 @@ f_test.o: quiet_hdf_mod.o quiet_mapfile_mod.o
 
 f_ztest.o: quiet_hdf_mod.o quiet_mapfile_mod.o
 
-f_dipolelike: $(F_DPL) $(C_ZWRAP) $(DSUPERLULIB)
-	$(FORTRAN) $(LOADOPTS) $(F_DPL) $(C_ZWRAP) $(LIBS) -o $@ $(LDFLAGS)
+f_dipolelike.o: quiet_hdf_mod.o quiet_mapfile_mod.o
+
+comm_dipole_mod.o: comm_dipole_mod.f90
+	$(FORTRAN) $(LOADOPTS) $(F_DPL) $(C_ZWRAP) $(INCLUDES) $(LIBS) -o $@ $(LDFLAGS)
+
+f_dipolelike: $(F_DPL) $(C_ZWRAP) $(DSUPERLULIB) comm_dipole_mod.o
+	$(FORTRAN) $(LOADOPTS) $(F_DPL) $(C_ZWRAP) $(INCLUDES) $(LIBS) -o $@ $(LDFLAGS)
 
 f_dipolemcmc: $(F_DPLMCMC) $(C_ZWRAP) $(DSUPERLULIB)
 	$(FORTRAN) $(LOADOPTS) $(F_DPLMCMC) $(C_ZWRAP) $(LIBS) -o $@ $(LDFLAGS)
